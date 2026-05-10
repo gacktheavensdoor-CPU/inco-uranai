@@ -8,14 +8,24 @@ import { validateAnswers, type Answer } from "@/lib/questions";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-// 分散レートリミット（Upstash Redis）。環境変数未設定時はインメモリフォールバック
+// 分散レートリミット（Upstash Redis）。リクエスト時に遅延初期化
 let ratelimit: Ratelimit | null = null;
-if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
-  ratelimit = new Ratelimit({
-    redis: Redis.fromEnv(),
-    limiter: Ratelimit.slidingWindow(10, "60 s"),
-    prefix: "inco-uranai",
-  });
+function getRatelimit(): Ratelimit | null {
+  if (ratelimit) return ratelimit;
+  const url = process.env.UPSTASH_REDIS_REST_URL?.trim();
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN?.trim();
+  if (url?.startsWith("https://") && token) {
+    try {
+      ratelimit = new Ratelimit({
+        redis: new Redis({ url, token }),
+        limiter: Ratelimit.slidingWindow(10, "60 s"),
+        prefix: "inco-uranai",
+      });
+    } catch {
+      // 初期化失敗時はインメモリフォールバック
+    }
+  }
+  return ratelimit;
 }
 
 // インメモリフォールバック（Serverless では近似的な制限のみ）
@@ -122,8 +132,9 @@ export async function POST(req: NextRequest) {
     const ip = getClientIp(req);
 
     // レートリミット判定
-    if (ratelimit) {
-      const { success } = await ratelimit.limit(ip);
+    const rl = getRatelimit();
+    if (rl) {
+      const { success } = await rl.limit(ip);
       if (!success) {
         return NextResponse.json({ error: "しばらく待ってから試してください" }, { status: 429 });
       }
