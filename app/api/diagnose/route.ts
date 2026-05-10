@@ -2,17 +2,29 @@ import Anthropic from "@anthropic-ai/sdk";
 import { NextRequest, NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
+import { Ratelimit } from "@upstash/ratelimit";
+import { Redis } from "@upstash/redis";
+import { validateAnswers, type Answer } from "@/lib/questions";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
-// シンプルなレート制限（IP別・1分10回まで）
-const rateLimit = new Map<string, { count: number; reset: number }>();
+// 分散レートリミット（Upstash Redis）。環境変数未設定時はインメモリフォールバック
+let ratelimit: Ratelimit | null = null;
+if (process.env.UPSTASH_REDIS_REST_URL && process.env.UPSTASH_REDIS_REST_TOKEN) {
+  ratelimit = new Ratelimit({
+    redis: Redis.fromEnv(),
+    limiter: Ratelimit.slidingWindow(10, "60 s"),
+    prefix: "inco-uranai",
+  });
+}
 
-function checkRateLimit(ip: string): boolean {
+// インメモリフォールバック（Serverless では近似的な制限のみ）
+const memoryLimit = new Map<string, { count: number; reset: number }>();
+function checkMemoryLimit(ip: string): boolean {
   const now = Date.now();
-  const limit = rateLimit.get(ip);
+  const limit = memoryLimit.get(ip);
   if (!limit || now > limit.reset) {
-    rateLimit.set(ip, { count: 1, reset: now + 60000 });
+    memoryLimit.set(ip, { count: 1, reset: now + 60000 });
     return true;
   }
   if (limit.count >= 10) return false;
@@ -20,47 +32,42 @@ function checkRateLimit(ip: string): boolean {
   return true;
 }
 
-function loadIncoDatabase() {
+function getClientIp(req: NextRequest): string {
+  // 最左のIPを取得（プロキシチェーンの偽装を防ぐ）
+  const forwarded = req.headers.get("x-forwarded-for");
+  if (forwarded) return forwarded.split(",")[0].trim();
+  return req.headers.get("x-real-ip") ?? "unknown";
+}
+
+// データベースはモジュール起動時に1回だけ読み込む（リクエストごとのI/O削減）
+const PROFILES = (() => {
   const dbDir = path.join(process.cwd(), "data");
+  // ヨウムのファイル名は "ヨ_profile.json"（6文字省略形）
   const species = ["セキセイ", "オカメ", "コザクラ", "モモイロ", "ボタン", "ヨ"];
   const profiles: Record<string, unknown>[] = [];
   for (const s of species) {
     const f = path.join(dbDir, `${s}_profile.json`);
-    if (fs.existsSync(f)) {
-      profiles.push(JSON.parse(fs.readFileSync(f, "utf-8")));
-    }
+    if (fs.existsSync(f)) profiles.push(JSON.parse(fs.readFileSync(f, "utf-8")));
   }
   return profiles;
-}
+})();
 
-export async function POST(req: NextRequest) {
-  try {
-    const ip = req.headers.get("x-forwarded-for") ?? "unknown";
-    if (!checkRateLimit(ip)) {
-      return NextResponse.json({ error: "しばらく待ってから試してください" }, { status: 429 });
-    }
+const PROFILE_SUMMARY = PROFILES.map((p: Record<string, unknown>) => ({
+  species: p.species,
+  fortune_archetype: p.fortune_archetype,
+  personality_traits: p.personality_traits,
+  love_style: p.love_style,
+  communication_style: p.communication_style,
+  unique_characteristics: p.unique_characteristics,
+  human_personality_match: p.human_personality_match,
+  color_theme: p.color_theme,
+  lucky_color: p.lucky_color,
+  compatibility: p.compatibility,
+  compatibility_reason: p.compatibility_reason,
+}));
 
-    const { answers } = await req.json();
-    if (!answers || answers.length !== 10) {
-      return NextResponse.json({ error: "回答が不正です" }, { status: 400 });
-    }
-
-    const profiles = loadIncoDatabase();
-    const profileSummary = profiles.map((p: Record<string, unknown>) => ({
-      species: p.species,
-      fortune_archetype: p.fortune_archetype,
-      personality_traits: p.personality_traits,
-      love_style: p.love_style,
-      communication_style: p.communication_style,
-      unique_characteristics: p.unique_characteristics,
-      human_personality_match: p.human_personality_match,
-      color_theme: p.color_theme,
-      lucky_color: p.lucky_color,
-      compatibility: p.compatibility,
-      compatibility_reason: p.compatibility_reason,
-    }));
-
-    const prompt = `あなたはインコ占い師です。以下のインコデータベースと診断の回答をもとに、その人が「もしインコだったら何インコ型か」を判定してください。
+function buildPrompt(answers: Answer[]): string {
+  return `あなたはインコ占い師です。以下のインコデータベースと診断の回答をもとに、その人が「もしインコだったら何インコ型か」を判定してください。
 
 ## 重要なルール
 - 比喩は必ず鳥・インコに関連した表現を使う（「社交鳥」「羽を広げる」「さえずる」「羽ばたく」「群れを作る」など）
@@ -70,10 +77,10 @@ export async function POST(req: NextRequest) {
 - color_theme・lucky_color・compatibility・compatibility_reasonは必ずデータベースの値をそのまま使う
 
 ## インコデータベース
-${JSON.stringify(profileSummary, null, 2)}
+${JSON.stringify(PROFILE_SUMMARY, null, 2)}
 
 ## 診断の回答
-${answers.map((a: { question: string; answer: string }, i: number) => `Q${i + 1}: ${a.question}\n→ ${a.answer}`).join("\n\n")}
+${answers.map((a, i) => `Q${i + 1}: ${a.question}\n→ ${a.answer}`).join("\n\n")}
 
 ## 出力形式（JSON、他のテキスト不要）
 {
@@ -90,17 +97,64 @@ ${answers.map((a: { question: string; answer: string }, i: number) => `Q${i + 1}
   "compatibility_reason": "データベースのcompatibility_reasonをそのまま使う",
   "share_text": "SNSシェア用の一言（インコらしい口調で100字以内）"
 }`;
+}
 
-    const response = await client.messages.create({
-      model: "claude-haiku-4-5-20251001",
-      max_tokens: 1500,
-      messages: [{ role: "user", content: prompt }],
-    });
+async function callDiagnoseApi(answers: Answer[]): Promise<Record<string, unknown>> {
+  const response = await client.messages.create({
+    model: "claude-haiku-4-5-20251001",
+    max_tokens: 1500,
+    messages: [{ role: "user", content: buildPrompt(answers) }],
+  });
 
-    const text = (response.content[0] as { text: string }).text.trim()
-      .replace(/```json\n?/g, "").replace(/```\n?/g, "");
+  const block = response.content.find((b) => b.type === "text");
+  if (!block || block.type !== "text") throw new Error("テキストレスポンスがありません");
 
-    return NextResponse.json(JSON.parse(text));
+  // JSONブロックを正規表現で抽出（余計なテキストへの耐性）
+  const raw = block.text.trim();
+  const match = raw.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error("JSONが見つかりません");
+
+  return JSON.parse(match[0]);
+}
+
+export async function POST(req: NextRequest) {
+  try {
+    const ip = getClientIp(req);
+
+    // レートリミット判定
+    if (ratelimit) {
+      const { success } = await ratelimit.limit(ip);
+      if (!success) {
+        return NextResponse.json({ error: "しばらく待ってから試してください" }, { status: 429 });
+      }
+    } else {
+      if (!checkMemoryLimit(ip)) {
+        return NextResponse.json({ error: "しばらく待ってから試してください" }, { status: 429 });
+      }
+    }
+
+    const body = await req.json();
+    let answers: Answer[];
+    try {
+      answers = validateAnswers(body.answers);
+    } catch (e) {
+      return NextResponse.json({ error: (e as Error).message }, { status: 400 });
+    }
+
+    // パース失敗時は1回リトライ
+    let result: Record<string, unknown>;
+    try {
+      result = await callDiagnoseApi(answers);
+    } catch {
+      result = await callDiagnoseApi(answers);
+    }
+
+    // color_themeをバリデーション（CSSインジェクション防止）
+    if (typeof result.color_theme === "string" && !/^#[0-9A-Fa-f]{6}$/.test(result.color_theme)) {
+      result.color_theme = "#2ECC71";
+    }
+
+    return NextResponse.json(result);
   } catch (e) {
     console.error(e);
     return NextResponse.json({ error: "診断中にエラーが発生しました。もう一度お試しください。" }, { status: 500 });

@@ -24,7 +24,18 @@ export default function PrivacyPolicy() {
         </section>
 
         <section className="mb-6">
-          <h2 className="text-lg font-bold text-gray-800 mb-2">3. Cookieおよびアクセス解析</h2>
+          <h2 className="text-lg font-bold text-gray-800 mb-2">3. 第三者サービスへの情報送信</h2>
+          <p className="text-sm text-gray-600 leading-relaxed">
+            診断結果の生成にあたり、回答内容をAnthropic社（米国）のAI API（Claude）に送信します。
+            送信される情報は診断の選択肢のみであり、個人を特定できる情報は含まれません。
+            Anthropic社のプライバシーポリシーは
+            <a href="https://www.anthropic.com/privacy" className="text-emerald-600 hover:underline" target="_blank" rel="noopener noreferrer">こちら</a>
+            をご確認ください。
+          </p>
+        </section>
+
+        <section className="mb-6">
+          <h2 className="text-lg font-bold text-gray-800 mb-2">4. Cookieおよびアクセス解析</h2>
           <p className="text-sm text-gray-600 leading-relaxed">
             本サービスでは、Google AdSenseおよびGoogle Analyticsを利用する場合があります。
             これらのサービスはCookieを使用してアクセス情報を収集します。
@@ -34,7 +45,7 @@ export default function PrivacyPolicy() {
         </section>
 
         <section className="mb-6">
-          <h2 className="text-lg font-bold text-gray-800 mb-2">4. 広告について</h2>
+          <h2 className="text-lg font-bold text-gray-800 mb-2">5. 広告について</h2>
           <p className="text-sm text-gray-600 leading-relaxed">
             本サービスはGoogle AdSenseを利用した広告を掲載する場合があります。
             Googleはユーザーの興味に基づいた広告を表示するためにCookieを使用することがあります。
@@ -43,22 +54,23 @@ export default function PrivacyPolicy() {
         </section>
 
         <section className="mb-6">
-          <h2 className="text-lg font-bold text-gray-800 mb-2">5. アフィリエイトリンクについて</h2>
+          <h2 className="text-lg font-bold text-gray-800 mb-2">6. アフィリエイトリンクについて</h2>
           <p className="text-sm text-gray-600 leading-relaxed">
             本サービスはAmazonアソシエイト・プログラムに参加しており、
             商品リンクを通じてご購入いただいた場合に紹介料を受け取ることがあります。
+            該当リンクには「広告」または「Amazon →」と表記しています。
           </p>
         </section>
 
         <section className="mb-6">
-          <h2 className="text-lg font-bold text-gray-800 mb-2">6. 第三者への情報提供</h2>
+          <h2 className="text-lg font-bold text-gray-800 mb-2">7. 第三者への情報提供</h2>
           <p className="text-sm text-gray-600 leading-relaxed">
-            収集した情報は、法令に基づく場合を除き、第三者に提供しません。
+            収集した情報は、法令に基づく場合および上記3項に記載の場合を除き、第三者に提供しません。
           </p>
         </section>
 
         <section className="mb-6">
-          <h2 className="text-lg font-bold text-gray-800 mb-2">7. お問い合わせ</h2>
+          <h2 className="text-lg font-bold text-gray-800 mb-2">8. お問い合わせ</h2>
           <p className="text-sm text-gray-600 leading-relaxed">
             本ポリシーに関するお問い合わせは、YouTubeチャンネルのコメント欄またはコミュニティよりご連絡ください。
           </p>

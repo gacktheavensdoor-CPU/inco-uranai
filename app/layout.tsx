@@ -13,15 +13,21 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL("https://inco-uranai.vercel.app"),
   title: "インコ占い｜もしあなたがインコだったら？",
   description: "10の質問でわかる！あなたのインコ型診断。631本のリアルインコ動画データから生まれた本格占いアプリ。",
   openGraph: {
     title: "インコ占い｜もしあなたがインコだったら？",
-    description: "10の質問でわかる！あなたのインコ型診断。",
+    description: "10問の質問に答えてあなたのインコタイプを診断！",
     url: "https://inco-uranai.vercel.app",
     siteName: "インコ占い",
     locale: "ja_JP",
     type: "website",
+  },
+  twitter: {
+    card: "summary",
+    title: "インコ占い｜もしあなたがインコだったら？",
+    description: "10問の質問に答えてあなたのインコタイプを診断！",
   },
 };
 
@@ -32,7 +38,7 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
+      lang="ja"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
@@ -40,7 +46,7 @@ export default function RootLayout({
         <footer className="py-4 text-center text-xs text-emerald-400 bg-gradient-to-b from-teal-100 to-teal-200">
           <a href="/privacy-policy" className="hover:underline">プライバシーポリシー</a>
           <span className="mx-2">|</span>
-          <span>© 2026 インコ占い</span>
+          <span>© {new Date().getFullYear()} インコ占い</span>
         </footer>
       </body>
     </html>
