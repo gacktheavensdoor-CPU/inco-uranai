@@ -1,0 +1,175 @@
+{
+  "species": "モモイロインコ",
+  "species_en": "Galah",
+  "personality_traits": [
+    "社交的で愛情深い",
+    "感情表現が豊か",
+    "遊び心に満ちている",
+    "一途で独占欲が強い",
+    "敏感で繊細"
+  ],
+  "love_style": "誰にでも明るく接するため「本命は誰？」と思われがちだが、実はとても一途。笑顔で場を和ませながら、大切な人にだけ見せる甘えた顔がある",
+  "communication_style": "ムードメーカーで場の空気を明るくする達人。冗談を言いながら実は相手をよく観察している",
+  "stress_response": "普段は元気に見えても、一人になると急に寂しくなる。誰かそばにいてくれるだけで回復する",
+  "happy_behavior": "大声で歌い出す、または変な踊りを始める。周りを巻き込んでみんなで盛り上がろうとする",
+  "unique_characteristics": [
+    "太陽のように周囲を明るくするが、実は一番寂しがり屋",
+    "誰にでも平等に優しいのに、好きな人にだけ不器用に甘える"
+  ],
+  "fortune_archetype": "太陽タイプ",
+  "human_personality_match": {
+    "sociable": 9,
+    "independent": 2,
+    "affectionate": 10,
+    "playful": 9,
+    "intelligent": 8,
+    "sensitive": 9
+  },
+  "behaviors": [
+    {
+      "behavior": "パートナーの肩や頭に乗ったまま動かない",
+      "emotion": "愛情と安心感",
+      "context": "心を許した飼い主との時間",
+      "personality_tags": [
+        "一途",
+        "依存的",
+        "甘えん坊"
+      ],
+      "frequency": "高"
+    },
+    {
+      "behavior": "相手の耳元で甘ったるい声で鳴く",
+      "emotion": "愛情と求愛",
+      "context": "飼い主を独占したい時、親密さを求める時",
+      "personality_tags": [
+        "感情表現",
+        "おしゃべり",
+        "甘い"
+      ],
+      "frequency": "高"
+    },
+    {
+      "behavior": "頭を下げて相手の手の中に頭を押し付ける",
+      "emotion": "信頼と愛情",
+      "context": "飼い主にスキンシップを求めている時",
+      "personality_tags": [
+        "愛情深い",
+        "甘えん坊"
+      ],
+      "frequency": "高"
+    },
+    {
+      "behavior": "飼い主が他の鳥や動物に近づくと激しく鳴いて邪魔する",
+      "emotion": "嫉妬と不安",
+      "context": "自分だけを見てほしい時、パートナーを取られるのを恐れている",
+      "personality_tags": [
+        "独占欲",
+        "嫉妬深い",
+        "敏感"
+      ],
+      "frequency": "高"
+    },
+    {
+      "behavior": "胸を膨らませて回転しながら踊る",
+      "emotion": "喜びと興奮",
+      "context": "好物をもらった時、大好きな人が帰ってきた時",
+      "personality_tags": [
+        "遊び心",
+        "陽気",
+        "愛情表現"
+      ],
+      "frequency": "高"
+    },
+    {
+      "behavior": "何度も同じ場所を行ったり来たりする",
+      "emotion": "イライラと焦燥感",
+      "context": "飼い主が出かけるために準備をしている時、かまってほしい時",
+      "personality_tags": [
+        "不安定",
+        "依存的"
+      ],
+      "frequency": "高"
+    },
+    {
+      "behavior": "羽をふくらませて身体を大きく見せ、激しく鳴く",
+      "emotion": "怒りと威嚇",
+      "context": "自分のテリトリーを侵害された時、気に入らない状況",
+      "personality_tags": [
+        "敏感",
+        "反発的",
+        "感情的"
+      ],
+      "frequency": "中"
+    },
+    {
+      "behavior": "おもちゃを握ったまま飼い主のそばに来て見せびらかす",
+      "emotion": "誇りと親密さ",
+      "context": "飼い主と経験や喜びを共有したい時",
+      "personality_tags": [
+        "社交的",
+        "愛情深い"
+      ],
+      "frequency": "中"
+    },
+    {
+      "behavior": "鏡に向かって求愛ダンスをする、または飼い主に向かってダンスする",
+      "emotion": "愛情と親密さへの欲求",
+      "context": "相手にアピールしたい時、恋愛に関わる感情が高ぶっている",
+      "personality_tags": [
+        "愛情深い",
+        "感情表現",
+        "積極的"
+      ],
+      "frequency": "高"
+    },
+    {
+      "behavior": "飼い主の声を完璧に模倣して呼び出す",
+      "emotion": "親密さと遊び心",
+      "context": "飼い主と交流したい時、相手の注意を引きたい時",
+      "personality_tags": [
+        "おしゃべり",
+        "知的",
+        "愛情深い"
+      ],
+      "frequency": "高"
+    },
+    {
+      "behavior": "完全に沈黙して目も合わさず、背を向ける",
+      "emotion": "傷つきと怒り",
+      "context": "自分の要求が満たされなかった時、構ってもらえないと感じた時",
+      "personality_tags": [
+        "敏感",
+        "感情的",
+        "意地っ張り"
+      ],
+      "frequency": "中"
+    },
+    {
+      "behavior": "飼い主の周りを何度も飛び回り、着地と飛び立ちを繰り返す",
+      "emotion": "興奮と幸福感",
+      "context": "飼い主が帰宅した時、遊びたい気分の時",
+      "personality_tags": [
+        "社交的",
+        "遊び心",
+        "愛情深い"
+      ],
+      "frequency": "高"
+    },
+    {
+      "behavior": "同じ音を何度も何度も繰り返す",
+      "emotion": "不安またはストレス",
+      "context": "寂しい時、退屈している時、心理的な不安定さ",
+      "personality_tags": [
+        "敏感",
+        "依存的",
+        "不安定"
+      ],
+      "frequency": "中"
+    }
+  ],
+  "last_updated": "2026-05-10T20:57:00.587347",
+  "color_theme": "#FFB347",
+  "lucky_color": "明るいサンシャインオレンジ",
+  "compatibility": "ヨウム型",
+  "compatibility_reason": "落ち着いた知性でモモイロの明るさを支えてくれるヨウム型と相性◎"
+}
