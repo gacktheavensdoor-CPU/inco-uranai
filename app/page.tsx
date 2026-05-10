@@ -94,6 +94,72 @@ const QUESTIONS = [
   },
 ];
 
+const AFFILIATE_MAP: { keywords: string[]; products: { label: string; query: string }[] }[] = [
+  {
+    keywords: ["セキセイ"],
+    products: [
+      { label: "🌾 セキセイインコのごはん", query: "セキセイインコ 餌" },
+      { label: "🎾 セキセイインコのおもちゃ", query: "セキセイインコ おもちゃ" },
+      { label: "🏠 インコ用ケージ", query: "インコ ケージ 小型" },
+    ],
+  },
+  {
+    keywords: ["オカメ"],
+    products: [
+      { label: "🍎 オカメインコのおやつ", query: "オカメインコ おやつ" },
+      { label: "🎾 オカメインコのおもちゃ", query: "オカメインコ おもちゃ" },
+      { label: "🏠 オカメ用ケージ", query: "オカメインコ ケージ" },
+    ],
+  },
+  {
+    keywords: ["コザクラ"],
+    products: [
+      { label: "💕 コザクラインコのグッズ", query: "コザクラインコ グッズ" },
+      { label: "🎾 インコのおもちゃ", query: "インコ おもちゃ 遊び" },
+      { label: "🏠 インコ用ケージ", query: "インコ ケージ" },
+    ],
+  },
+  {
+    keywords: ["モモイロ"],
+    products: [
+      { label: "🦜 モモイロインコのグッズ", query: "モモイロインコ グッズ" },
+      { label: "🏠 大型インコ用ケージ", query: "インコ ケージ 大型" },
+      { label: "🎾 大型インコのおもちゃ", query: "オウム インコ おもちゃ 大型" },
+    ],
+  },
+  {
+    keywords: ["ボタン"],
+    products: [
+      { label: "💜 ボタンインコのグッズ", query: "ボタンインコ グッズ" },
+      { label: "🎾 インコのおもちゃ", query: "インコ おもちゃ" },
+      { label: "🏠 インコ用ケージ", query: "インコ ケージ 小型" },
+    ],
+  },
+  {
+    keywords: ["ヨウム", "ヨ"],
+    products: [
+      { label: "🧠 ヨウムの知育おもちゃ", query: "ヨウム おもちゃ 知育" },
+      { label: "🏠 大型インコ用ケージ", query: "オウム ケージ 大型" },
+      { label: "🍎 大型インコのおやつ", query: "オウム インコ おやつ" },
+    ],
+  },
+];
+
+function getAffiliateItems(incoType: string) {
+  for (const item of AFFILIATE_MAP) {
+    if (item.keywords.some((k) => incoType.includes(k))) return item.products;
+  }
+  return [
+    { label: "🦜 インコのおもちゃ", query: "インコ おもちゃ" },
+    { label: "🌾 インコのごはん", query: "インコ 餌 ペレット" },
+    { label: "🏠 インコ用ケージ", query: "インコ ケージ" },
+  ];
+}
+
+function makeAmazonUrl(query: string) {
+  return `https://www.amazon.co.jp/s?k=${encodeURIComponent(query)}&tag=incouranai-22`;
+}
+
 type Result = {
   inco_type: string;
   inco_emoji: string;
@@ -276,6 +342,25 @@ export default function Home() {
                   <p className="text-xs font-bold text-green-600 mb-1">🍀 ラッキーアイテム</p>
                   <p className="text-xs text-gray-700">{result.lucky_item}</p>
                 </div>
+              </div>
+
+              <div className="bg-amber-50 rounded-xl p-4 mb-4">
+                <p className="text-xs font-bold text-amber-600 mb-2">🛒 あなたのタイプにおすすめのグッズ</p>
+                <div className="space-y-2">
+                  {getAffiliateItems(result.inco_type).map((item, i) => (
+                    <a
+                      key={i}
+                      href={makeAmazonUrl(item.query)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center justify-between w-full bg-white border border-amber-200 hover:border-amber-400 rounded-lg px-3 py-2 text-sm text-gray-700 hover:text-amber-700 transition-all"
+                    >
+                      <span>{item.label}</span>
+                      <span className="text-amber-400 text-xs">Amazon →</span>
+                    </a>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-400 mt-2">※ Amazonアソシエイトリンクを含みます</p>
               </div>
 
               <button
