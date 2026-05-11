@@ -109,6 +109,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const [lastAnswers, setLastAnswers] = useState<{ question: string; answer: string }[]>([]);
+  const [showSharePanel, setShowSharePanel] = useState(false);
 
   const submitDiagnosis = async (finalAnswers: { question: string; answer: string }[]) => {
     setStep("loading");
@@ -157,7 +158,7 @@ export default function Home() {
     setLastAnswers([]);
   };
 
-  const handleShare = (result: Result) => {
+  const buildShareData = (result: Result) => {
     const base = typeof window !== "undefined" ? window.location.origin : "";
     const params = new URLSearchParams({
       type: result.inco_type,
@@ -168,8 +169,45 @@ export default function Home() {
     });
     const shareUrl = `${base}/share?${params.toString()}`;
     const text = `${result.share_text ?? ""}\n\n#インコ占い #もしあなたがインコだったら`;
-    const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl)}`;
-    window.open(twitterUrl, "_blank", "noopener,noreferrer");
+    return { shareUrl, text };
+  };
+
+  const handleShareX = (result: Result) => {
+    const { shareUrl, text } = buildShareData(result);
+    window.open(
+      `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl)}`,
+      "_blank", "noopener,noreferrer"
+    );
+  };
+
+  const handleShareLine = (result: Result) => {
+    const { shareUrl, text } = buildShareData(result);
+    window.open(
+      `https://line.me/R/msg/text/?${encodeURIComponent(text + "\n" + shareUrl)}`,
+      "_blank", "noopener,noreferrer"
+    );
+  };
+
+  const handleCopyUrl = async (result: Result) => {
+    const { shareUrl } = buildShareData(result);
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setToast("URLをコピーしました！SNSに貼り付けてシェアしてください🦜");
+    } catch {
+      setToast("コピーできませんでした");
+    }
+    setShowSharePanel(false);
+  };
+
+  const handleShareNative = async (result: Result) => {
+    const { shareUrl, text } = buildShareData(result);
+    if (typeof navigator !== "undefined" && navigator.share) {
+      try {
+        await navigator.share({ title: `インコ占い｜${result.inco_type}`, text, url: shareUrl });
+        return;
+      } catch { /* キャンセル時は何もしない */ }
+    }
+    setShowSharePanel(true);
   };
 
   if (step === "top") {
@@ -327,13 +365,43 @@ export default function Home() {
                 <p className="text-xs text-gray-400 mt-2">※ Amazonアソシエイトリンクを含みます</p>
               </div>
 
-              <button
-                onClick={() => handleShare(result)}
-                className="w-full text-white font-bold py-3 rounded-xl transition-all active:scale-95 mb-3"
-                style={{ backgroundColor: color }}
-              >
-                結果をシェアする 🐦
-              </button>
+              {!showSharePanel ? (
+                <button
+                  onClick={() => handleShareNative(result)}
+                  className="w-full text-white font-bold py-3 rounded-xl transition-all active:scale-95 mb-3"
+                  style={{ backgroundColor: color }}
+                >
+                  結果をシェアする 🐦
+                </button>
+              ) : (
+                <div className="rounded-xl overflow-hidden mb-3 border-2" style={{ borderColor: color }}>
+                  <p className="text-center text-xs font-bold py-2 text-white" style={{ backgroundColor: color }}>
+                    シェア方法を選んでください
+                  </p>
+                  <button
+                    onClick={() => handleShareX(result)}
+                    className="w-full flex items-center gap-3 px-4 py-3 bg-black hover:bg-gray-900 text-white font-bold transition-all border-b border-gray-800"
+                  >
+                    <span className="text-lg">𝕏</span>
+                    <span>Xでシェア</span>
+                    <span className="ml-auto text-xs text-gray-400">OG画像付き</span>
+                  </button>
+                  <button
+                    onClick={() => handleShareLine(result)}
+                    className="w-full flex items-center gap-3 px-4 py-3 bg-[#06C755] hover:bg-[#05b34c] text-white font-bold transition-all border-b border-green-600"
+                  >
+                    <span className="text-lg">💬</span>
+                    <span>LINEでシェア</span>
+                  </button>
+                  <button
+                    onClick={() => handleCopyUrl(result)}
+                    className="w-full flex items-center gap-3 px-4 py-3 bg-gray-100 hover:bg-gray-200 text-gray-700 font-bold transition-all"
+                  >
+                    <span className="text-lg">🔗</span>
+                    <span>URLをコピー</span>
+                  </button>
+                </div>
+              )}
               <button
                 onClick={reset}
                 className="w-full bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold py-3 rounded-xl transition-all active:scale-95"
