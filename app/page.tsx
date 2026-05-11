@@ -404,10 +404,20 @@ export default function Home() {
               )}
               <button
                 onClick={reset}
-                className="w-full bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold py-3 rounded-xl transition-all active:scale-95"
+                className="w-full bg-gray-100 hover:bg-gray-200 text-gray-600 font-bold py-3 rounded-xl transition-all active:scale-95 mb-3"
               >
                 もう一度診断する
               </button>
+
+              <a
+                href="https://www.youtube.com/@osakedaisuki0216"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full flex items-center justify-center gap-2 bg-red-500 hover:bg-red-600 text-white font-bold py-3 rounded-xl transition-all active:scale-95"
+              >
+                <span>▶</span>
+                <span>リアルなインコの暮らしを見てみよう🦜</span>
+              </a>
             </div>
           </div>
         </div>

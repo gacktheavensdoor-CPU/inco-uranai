@@ -98,6 +98,16 @@ export default async function SharePage({ searchParams }: Props) {
           </div>
           <p className="text-xs text-gray-400 mt-2">※ Amazonアソシエイトリンクを含みます</p>
         </div>
+
+        <a
+          href="https://www.youtube.com/@osakedaisuki0216"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="w-full max-w-sm flex items-center justify-center gap-2 bg-red-500 hover:bg-red-600 text-white font-bold py-3 rounded-xl transition-all mt-3"
+        >
+          <span>▶</span>
+          <span>リアルなインコの暮らしを見てみよう🦜</span>
+        </a>
       </div>
     </main>
   );
