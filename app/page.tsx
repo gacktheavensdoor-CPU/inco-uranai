@@ -86,6 +86,7 @@ type Result = {
   compatibility: string;
   compatibility_reason: string;
   share_text: string;
+  hidden?: boolean;
 };
 
 function Toast({ message, onDone }: { message: string; onDone: () => void }) {
@@ -156,13 +157,19 @@ export default function Home() {
     setLastAnswers([]);
   };
 
-  const handleShare = async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setToast("コピーしました！SNSに貼り付けてシェアしてください🦜");
-    } catch {
-      setToast("コピーできませんでした。手動でコピーしてください");
-    }
+  const handleShare = (result: Result) => {
+    const base = typeof window !== "undefined" ? window.location.origin : "";
+    const params = new URLSearchParams({
+      type: result.inco_type,
+      emoji: result.inco_emoji ?? "🦜",
+      color: result.color_theme,
+      archetype: result.archetype ?? "",
+      ...(result.hidden ? { hidden: "1" } : {}),
+    });
+    const shareUrl = `${base}/share?${params.toString()}`;
+    const text = `${result.share_text ?? ""}\n\n#インコ占い #もしあなたがインコだったら`;
+    const twitterUrl = `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(shareUrl)}`;
+    window.open(twitterUrl, "_blank", "noopener,noreferrer");
   };
 
   if (step === "top") {
@@ -321,7 +328,7 @@ export default function Home() {
               </div>
 
               <button
-                onClick={() => handleShare(`${result.share_text ?? ""}\n\n#インコ占い #もしあなたがインコだったら`)}
+                onClick={() => handleShare(result)}
                 className="w-full text-white font-bold py-3 rounded-xl transition-all active:scale-95 mb-3"
                 style={{ backgroundColor: color }}
               >

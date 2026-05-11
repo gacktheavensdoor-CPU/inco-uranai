@@ -6,6 +6,38 @@ import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 import { validateAnswers, type Answer } from "@/lib/questions";
 
+// 隠しキャラ解放条件（5問すべて一致で解放）
+const HIDDEN_TSUKUNE: { q: string; a: string }[] = [
+  { q: "休日、あなたはどう過ごす？", a: "友達と賑やかに過ごす" },
+  { q: "大好きな食べ物を前にしたら？", a: "思わず声が出るほど喜ぶ" },
+  { q: "一人でいる時間は？", a: "寂しくて誰かを呼びたくなる" },
+  { q: "嬉しいことがあったら？", a: "周りの人全員に話したくなる" },
+  { q: "あなたの愛情表現は？", a: "言葉にして積極的に伝える" },
+];
+
+const HIDDEN_OIMO: { q: string; a: string }[] = [
+  { q: "休日、あなたはどう過ごす？", a: "のんびり家でリラックス" },
+  { q: "好きな人ができたら？", a: "そっと寄り添いながらじっくり距離を縮める" },
+  { q: "大好きな食べ物を前にしたら？", a: "大切な人に分けてあげたくなる" },
+  { q: "一人でいる時間は？", a: "大好きな人の顔が浮かんで会いたくなる" },
+  { q: "あなたの愛情表現は？", a: "ずっとそばにいることで示す" },
+];
+
+function checkHiddenChar(answers: Answer[]): Record<string, unknown> | null {
+  const dbDir = path.join(process.cwd(), "data");
+  const answerMap = new Map(answers.map((a) => [a.question, a.answer]));
+
+  if (HIDDEN_TSUKUNE.every((c) => answerMap.get(c.q) === c.a)) {
+    const f = path.join(dbDir, "つくね_hidden.json");
+    if (fs.existsSync(f)) return { ...JSON.parse(fs.readFileSync(f, "utf-8")), hidden: true };
+  }
+  if (HIDDEN_OIMO.every((c) => answerMap.get(c.q) === c.a)) {
+    const f = path.join(dbDir, "おいも_hidden.json");
+    if (fs.existsSync(f)) return { ...JSON.parse(fs.readFileSync(f, "utf-8")), hidden: true };
+  }
+  return null;
+}
+
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 // 分散レートリミット（Upstash Redis）。リクエスト時に遅延初期化
@@ -151,6 +183,10 @@ export async function POST(req: NextRequest) {
     } catch (e) {
       return NextResponse.json({ error: (e as Error).message }, { status: 400 });
     }
+
+    // 隠しキャラ判定（一致すればClaudeを呼ばず即返す）
+    const hidden = checkHiddenChar(answers);
+    if (hidden) return NextResponse.json(hidden);
 
     // パース失敗時は1回リトライ
     let result: Record<string, unknown>;
