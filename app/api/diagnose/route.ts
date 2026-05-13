@@ -84,7 +84,6 @@ function getClientIp(req: NextRequest): string {
 // データベースはモジュール起動時に1回だけ読み込む（リクエストごとのI/O削減）
 const PROFILES = (() => {
   const dbDir = path.join(process.cwd(), "data");
-  // ヨウムのファイル名は "ヨ_profile.json"（6文字省略形）
   const species = ["セキセイ", "オカメ", "コザクラ", "モモイロ", "ボタン", "ヨ"];
   const profiles: Record<string, unknown>[] = [];
   for (const s of species) {
@@ -95,100 +94,83 @@ const PROFILES = (() => {
 })();
 
 // ============================================================
-// 答えをもとにインコを選ぶ仕組み（コードで確定させる）
+// 投票方式でインコを選ぶ（各回答が1位票2点・2位票1点を持つ）
+// 10問でどのインコに一番票が集まったかで決定する
 // ============================================================
 
-type DimKey = "sociable" | "independent" | "affectionate" | "playful" | "intelligent" | "sensitive";
-type DimScores = Record<DimKey, number>;
-
-// 各回答が持つ性格スコア（各次元に0〜2点）
-const ANSWER_SCORES: Record<string, Partial<DimScores>> = {
+// 各回答 → {primary: 1位インコ, secondary: 2位インコ}
+// 各プロファイルが10問中6〜7問で1位票を持つよう均等に配分
+const ANSWER_VOTES: Record<string, { primary: string; secondary: string }> = {
   // Q1: 休日
-  "友達と賑やかに過ごす":                         { sociable: 2, playful: 1 },
-  "大好きな人とゆっくり二人きり":                 { affectionate: 2, sensitive: 1 },
-  "一人で新しいことを探索":                       { independent: 2, playful: 1, intelligent: 1 },
-  "のんびり家でリラックス":                       { sensitive: 2, independent: 1 },
+  "友達と賑やかに過ごす":                           { primary: "セキセイインコ",  secondary: "モモイロインコ" },
+  "大好きな人とゆっくり二人きり":                   { primary: "コザクラインコ",   secondary: "オカメインコ" },
+  "一人で新しいことを探索":                         { primary: "ヨウム",           secondary: "ボタンインコ" },
+  "のんびり家でリラックス":                         { primary: "ボタンインコ",     secondary: "オカメインコ" },
   // Q2: 好きな人
-  "すぐにアピールして気持ちを伝える":             { sociable: 2, affectionate: 1, playful: 1 },
-  "そっと寄り添いながらじっくり距離を縮める":     { sensitive: 2, intelligent: 1, affectionate: 1 },
-  "相手のことを知りたくて質問攻め":               { intelligent: 2, sociable: 1, playful: 1 },
-  "ライバルが現れると燃えてしまう":               { playful: 2, sociable: 1, independent: 1 },
+  "すぐにアピールして気持ちを伝える":               { primary: "セキセイインコ",  secondary: "モモイロインコ" },
+  "そっと寄り添いながらじっくり距離を縮める":       { primary: "オカメインコ",    secondary: "コザクラインコ" },
+  "相手のことを知りたくて質問攻め":                 { primary: "ヨウム",           secondary: "セキセイインコ" },
+  "ライバルが現れると燃えてしまう":                 { primary: "モモイロインコ",   secondary: "セキセイインコ" },
   // Q3: ストレス
-  "大声で話したり歌ったりして発散":               { sociable: 2, playful: 1 },
-  "信頼できる人にひたすら甘える":                 { affectionate: 2, sensitive: 1 },
-  "新しい趣味や場所で気分転換":                   { playful: 2, independent: 1, intelligent: 1 },
-  "静かにこもって一人で解消":                     { independent: 2, intelligent: 1, sensitive: 1 },
+  "大声で話したり歌ったりして発散":                 { primary: "セキセイインコ",  secondary: "モモイロインコ" },
+  "信頼できる人にひたすら甘える":                   { primary: "コザクラインコ",   secondary: "オカメインコ" },
+  "新しい趣味や場所で気分転換":                     { primary: "モモイロインコ",   secondary: "セキセイインコ" },
+  "静かにこもって一人で解消":                       { primary: "ヨウム",           secondary: "ボタンインコ" },
   // Q4: コミュニケーション
-  "気づいたらずっと喋っている":                   { sociable: 2, playful: 1 },
-  "少数の人と深く繋がりたい":                     { sensitive: 2, affectionate: 1 },
-  "相手の話をよく聞く方":                         { sensitive: 2, intelligent: 1, affectionate: 1 },
-  "状況を読んで慎重に話す":                       { intelligent: 2, sensitive: 1, independent: 1 },
+  "気づいたらずっと喋っている":                     { primary: "セキセイインコ",  secondary: "モモイロインコ" },
+  "少数の人と深く繋がりたい":                       { primary: "コザクラインコ",   secondary: "オカメインコ" },
+  "相手の話をよく聞く方":                           { primary: "オカメインコ",    secondary: "コザクラインコ" },
+  "状況を読んで慎重に話す":                         { primary: "ヨウム",           secondary: "ボタンインコ" },
   // Q5: 食べ物
-  "思わず声が出るほど喜ぶ":                       { playful: 2, sociable: 1 },
-  "大切な人に分けてあげたくなる":                 { affectionate: 2, sensitive: 1 },
-  "初めての味も積極的に試してみる":               { playful: 2, independent: 1, intelligent: 1 },
-  "じっくり味わって大切に食べる":                 { sensitive: 2, intelligent: 1, independent: 1 },
+  "思わず声が出るほど喜ぶ":                         { primary: "モモイロインコ",   secondary: "セキセイインコ" },
+  "大切な人に分けてあげたくなる":                   { primary: "コザクラインコ",   secondary: "オカメインコ" },
+  "初めての味も積極的に試してみる":                 { primary: "セキセイインコ",  secondary: "モモイロインコ" },
+  "じっくり味わって大切に食べる":                   { primary: "オカメインコ",    secondary: "ヨウム" },
   // Q6: 一人の時間
-  "寂しくて誰かを呼びたくなる":                   { sociable: 2, affectionate: 1, sensitive: 1 },
-  "大好きな人の顔が浮かんで会いたくなる":         { affectionate: 2, sensitive: 1 },
-  "新しい発見があって楽しめる":                   { intelligent: 2, independent: 1, playful: 1 },
-  "のんびりできて充実している":                   { independent: 2, sensitive: 1 },
+  "寂しくて誰かを呼びたくなる":                     { primary: "コザクラインコ",   secondary: "オカメインコ" },
+  "大好きな人の顔が浮かんで会いたくなる":           { primary: "オカメインコ",    secondary: "コザクラインコ" },
+  "新しい発見があって楽しめる":                     { primary: "ヨウム",           secondary: "ボタンインコ" },
+  "のんびりできて充実している":                     { primary: "ボタンインコ",     secondary: "ヨウム" },
   // Q7: 大切な人が他の人と
-  "気にしない、みんなと仲良くしてほしい":         { sociable: 2, independent: 1 },
-  "すごく気になってモヤモヤしてしまう":           { sensitive: 2, affectionate: 1 },
-  "二人のことが気になって調べてしまう":           { intelligent: 2, sensitive: 1, independent: 1 },
-  "内心は寂しいが表には出さない":                 { sensitive: 2, intelligent: 1, independent: 1 },
+  "気にしない、みんなと仲良くしてほしい":           { primary: "セキセイインコ",  secondary: "モモイロインコ" },
+  "すごく気になってモヤモヤしてしまう":             { primary: "ボタンインコ",     secondary: "コザクラインコ" },
+  "二人のことが気になって調べてしまう":             { primary: "ヨウム",           secondary: "ボタンインコ" },
+  "内心は寂しいが表には出さない":                   { primary: "オカメインコ",    secondary: "コザクラインコ" },
   // Q8: 新しい環境
-  "わくわくして飛び込む":                         { playful: 2, sociable: 1, independent: 1 },
-  "信頼できる人が一緒なら挑戦できる":             { affectionate: 2, sensitive: 1, sociable: 1 },
-  "じっくり情報を集めてから判断する":             { intelligent: 2, sensitive: 1, independent: 1 },
-  "慎重になって時間が必要":                       { sensitive: 2, intelligent: 1 },
+  "わくわくして飛び込む":                           { primary: "モモイロインコ",   secondary: "セキセイインコ" },
+  "信頼できる人が一緒なら挑戦できる":               { primary: "オカメインコ",    secondary: "コザクラインコ" },
+  "じっくり情報を集めてから判断する":               { primary: "ヨウム",           secondary: "ボタンインコ" },
+  "慎重になって時間が必要":                         { primary: "ボタンインコ",     secondary: "オカメインコ" },
   // Q9: 嬉しいこと
-  "周りの人全員に話したくなる":                   { sociable: 2, playful: 1 },
-  "大切な人だけに伝えたい":                       { affectionate: 2, sensitive: 1 },
-  "どう表現しようか考えてしまう":                 { intelligent: 2, sensitive: 1 },
-  "自分の中でじっくり噛み締める":                 { sensitive: 2, intelligent: 1, independent: 1 },
+  "周りの人全員に話したくなる":                     { primary: "モモイロインコ",   secondary: "セキセイインコ" },
+  "大切な人だけに伝えたい":                         { primary: "コザクラインコ",   secondary: "オカメインコ" },
+  "どう表現しようか考えてしまう":                   { primary: "オカメインコ",    secondary: "ヨウム" },
+  "自分の中でじっくり噛み締める":                   { primary: "ボタンインコ",     secondary: "ヨウム" },
   // Q10: 愛情表現
-  "言葉にして積極的に伝える":                     { sociable: 2, affectionate: 1, playful: 1 },
-  "ずっとそばにいることで示す":                   { affectionate: 2, sensitive: 1 },
-  "相手が喜ぶことを考えて行動する":               { affectionate: 1, intelligent: 1, playful: 1, sensitive: 1 },
-  "照れてなかなか言えないけど心では深く思っている": { sensitive: 2, intelligent: 1, independent: 1 },
+  "言葉にして積極的に伝える":                       { primary: "セキセイインコ",  secondary: "モモイロインコ" },
+  "ずっとそばにいることで示す":                     { primary: "コザクラインコ",   secondary: "オカメインコ" },
+  "相手が喜ぶことを考えて行動する":                 { primary: "モモイロインコ",   secondary: "セキセイインコ" },
+  "照れてなかなか言えないけど心では深く思っている": { primary: "ボタンインコ",     secondary: "オカメインコ" },
 };
 
-// 各次元で取りうる最大合計点（正規化に使う）
-const DIM_MAX: DimScores = {
-  sociable: 18, independent: 13, affectionate: 17,
-  playful: 13,  intelligent: 16, sensitive: 18,
-};
+// 回答に応じて投票を集計し、最多票のプロファイルを返す
+function selectBestProfile(answers: Answer[]): Record<string, unknown> {
+  const votes: Record<string, number> = {};
+  for (const profile of PROFILES) votes[profile.species as string] = 0;
 
-const DIMS: DimKey[] = ["sociable", "independent", "affectionate", "playful", "intelligent", "sensitive"];
-
-// 10問の回答を集計して性格スコアを算出
-function scoreAnswers(answers: Answer[]): DimScores {
-  const total: DimScores = { sociable: 0, independent: 0, affectionate: 0, playful: 0, intelligent: 0, sensitive: 0 };
   for (const a of answers) {
-    const s = ANSWER_SCORES[a.answer];
-    if (s) {
-      for (const k of DIMS) total[k] += s[k] ?? 0;
+    const v = ANSWER_VOTES[a.answer];
+    if (v) {
+      votes[v.primary]   = (votes[v.primary]   ?? 0) + 2;
+      votes[v.secondary] = (votes[v.secondary] ?? 0) + 1;
     }
   }
-  return total;
-}
-
-// 集計スコアに最も近いプロファイルを返す
-function selectBestProfile(answers: Answer[]): Record<string, unknown> {
-  const raw = scoreAnswers(answers);
-  // 0〜10 スケールに揃える
-  const norm: DimScores = { sociable: 0, independent: 0, affectionate: 0, playful: 0, intelligent: 0, sensitive: 0 };
-  for (const k of DIMS) norm[k] = (raw[k] / DIM_MAX[k]) * 10;
 
   let best = PROFILES[0];
-  let minDist = Infinity;
+  let maxVotes = -1;
   for (const profile of PROFILES) {
-    const m = profile.human_personality_match as DimScores;
-    let dist = 0;
-    for (const k of DIMS) dist += Math.pow(norm[k] - m[k], 2);
-    if (dist < minDist) { minDist = dist; best = profile; }
+    const score = votes[profile.species as string] ?? 0;
+    if (score > maxVotes) { maxVotes = score; best = profile; }
   }
   return best;
 }
