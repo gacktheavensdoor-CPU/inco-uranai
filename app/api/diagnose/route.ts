@@ -108,24 +108,13 @@ const PROFILE_SUMMARY = PROFILES.map((p: Record<string, unknown>) => ({
   compatibility_reason: p.compatibility_reason,
 }));
 
-function shuffle<T>(arr: T[]): T[] {
-  const a = [...arr];
-  for (let i = a.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [a[i], a[j]] = [a[j], a[i]];
-  }
-  return a;
-}
-
 function buildPrompt(answers: Answer[]): string {
-  // リクエストごとに順序をシャッフルしてリーセンシーバイアスを防ぐ
-  const shuffledProfiles = shuffle(PROFILE_SUMMARY);
   return `あなたはインコ占い師です。以下のインコデータベースと診断の回答をもとに、その人が「もしインコだったら何インコ型か」を判定してください。
 
 ## 種類選択ルール（最重要）
-- データベースにある ${shuffledProfiles.length} 種類の中から、回答パターンに最も合う1種類だけを選ぶ
-- personality_traits と human_personality_match を回答と照合して選ぶ
-- リストの順番や intelligence スコアの高低だけで選ばない。全種類を均等に比較してから決める
+- データベースにある6種類すべてについて、personality_traits と human_personality_match を回答と1つずつ照合する
+- 照合した結果、最も回答パターンに合う1種類だけを選ぶ
+- リストの順番・intelligence スコアの高低だけで選ばない
 - 選んだ species の color_theme・lucky_color・compatibility・compatibility_reason をそのまま出力に使う
 
 ## 重要なルール
@@ -135,7 +124,7 @@ function buildPrompt(answers: Answer[]): string {
 - descriptionはインコの具体的な行動（鳴く・羽ばたく・甘える・つつくなど）で性格を表現する
 
 ## インコデータベース
-${JSON.stringify(shuffledProfiles, null, 2)}
+${JSON.stringify(PROFILE_SUMMARY, null, 2)}
 
 ## 診断の回答
 ${answers.map((a, i) => `Q${i + 1}: ${a.question}\n→ ${a.answer}`).join("\n\n")}
@@ -161,6 +150,7 @@ async function callDiagnoseApi(answers: Answer[]): Promise<Record<string, unknow
   const response = await client.messages.create({
     model: "claude-haiku-4-5-20251001",
     max_tokens: 1500,
+    temperature: 0,
     messages: [{ role: "user", content: buildPrompt(answers) }],
   });
 
