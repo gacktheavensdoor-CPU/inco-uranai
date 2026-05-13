@@ -108,18 +108,34 @@ const PROFILE_SUMMARY = PROFILES.map((p: Record<string, unknown>) => ({
   compatibility_reason: p.compatibility_reason,
 }));
 
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 function buildPrompt(answers: Answer[]): string {
+  // リクエストごとに順序をシャッフルしてリーセンシーバイアスを防ぐ
+  const shuffledProfiles = shuffle(PROFILE_SUMMARY);
   return `あなたはインコ占い師です。以下のインコデータベースと診断の回答をもとに、その人が「もしインコだったら何インコ型か」を判定してください。
+
+## 種類選択ルール（最重要）
+- データベースにある ${shuffledProfiles.length} 種類の中から、回答パターンに最も合う1種類だけを選ぶ
+- personality_traits と human_personality_match を回答と照合して選ぶ
+- リストの順番や intelligence スコアの高低だけで選ばない。全種類を均等に比較してから決める
+- 選んだ species の color_theme・lucky_color・compatibility・compatibility_reason をそのまま出力に使う
 
 ## 重要なルール
 - 比喩は必ず鳥・インコに関連した表現を使う（「社交鳥」「羽を広げる」「さえずる」「羽ばたく」「群れを作る」など）
 - 「蝶」「猫」「犬」など他の動物の比喩は一切使わない
 - インコらしい愛らしい口調で、楽しくポジティブに描写する
 - descriptionはインコの具体的な行動（鳴く・羽ばたく・甘える・つつくなど）で性格を表現する
-- color_theme・lucky_color・compatibility・compatibility_reasonは必ずデータベースの値をそのまま使う
 
 ## インコデータベース
-${JSON.stringify(PROFILE_SUMMARY, null, 2)}
+${JSON.stringify(shuffledProfiles, null, 2)}
 
 ## 診断の回答
 ${answers.map((a, i) => `Q${i + 1}: ${a.question}\n→ ${a.answer}`).join("\n\n")}
@@ -128,15 +144,15 @@ ${answers.map((a, i) => `Q${i + 1}: ${a.question}\n→ ${a.answer}`).join("\n\n"
 {
   "inco_type": "○○インコ型",
   "inco_emoji": "インコに近い絵文字1つ",
-  "color_theme": "データベースのcolor_themeをそのまま使う",
+  "color_theme": "選んだspeciesのcolor_themeをそのまま",
   "archetype": "占いキャラクター像（短く・キャッチーに）",
   "description": "200字程度、インコの行動・習性に例えながら楽しく描写",
   "traits": ["特徴1", "特徴2", "特徴3"],
   "love_message": "恋愛・人間関係へのひとこと（50字程度）",
-  "lucky_color": "データベースのlucky_colorをそのまま使う",
+  "lucky_color": "選んだspeciesのlucky_colorをそのまま",
   "lucky_item": "ラッキーアイテム",
-  "compatibility": "データベースのcompatibilityをそのまま使う",
-  "compatibility_reason": "データベースのcompatibility_reasonをそのまま使う",
+  "compatibility": "選んだspeciesのcompatibilityをそのまま",
+  "compatibility_reason": "選んだspeciesのcompatibility_reasonをそのまま",
   "share_text": "SNSシェア用の一言（インコらしい口調で100字以内）"
 }`;
 }
