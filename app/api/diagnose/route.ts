@@ -94,75 +94,162 @@ const PROFILES = (() => {
   return profiles;
 })();
 
-const PROFILE_SUMMARY = PROFILES.map((p: Record<string, unknown>) => ({
-  species: p.species,
-  fortune_archetype: p.fortune_archetype,
-  personality_traits: p.personality_traits,
-  love_style: p.love_style,
-  communication_style: p.communication_style,
-  unique_characteristics: p.unique_characteristics,
-  human_personality_match: p.human_personality_match,
-  color_theme: p.color_theme,
-  lucky_color: p.lucky_color,
-  compatibility: p.compatibility,
-  compatibility_reason: p.compatibility_reason,
-}));
+// ============================================================
+// 答えをもとにインコを選ぶ仕組み（コードで確定させる）
+// ============================================================
 
-function buildPrompt(answers: Answer[]): string {
-  return `あなたはインコ占い師です。以下のインコデータベースと診断の回答をもとに、その人が「もしインコだったら何インコ型か」を判定してください。
+type DimKey = "sociable" | "independent" | "affectionate" | "playful" | "intelligent" | "sensitive";
+type DimScores = Record<DimKey, number>;
 
-## 種類選択ルール（最重要）
-- データベースにある6種類すべてについて、personality_traits と human_personality_match を回答と1つずつ照合する
-- 照合した結果、最も回答パターンに合う1種類だけを選ぶ
-- リストの順番・intelligence スコアの高低だけで選ばない
-- 選んだ species の color_theme・lucky_color・compatibility・compatibility_reason をそのまま出力に使う
+// 各回答が持つ性格スコア（各次元に0〜2点）
+const ANSWER_SCORES: Record<string, Partial<DimScores>> = {
+  // Q1: 休日
+  "友達と賑やかに過ごす":                         { sociable: 2, playful: 1 },
+  "大好きな人とゆっくり二人きり":                 { affectionate: 2, sensitive: 1 },
+  "一人で新しいことを探索":                       { independent: 2, playful: 1, intelligent: 1 },
+  "のんびり家でリラックス":                       { sensitive: 2, independent: 1 },
+  // Q2: 好きな人
+  "すぐにアピールして気持ちを伝える":             { sociable: 2, affectionate: 1, playful: 1 },
+  "そっと寄り添いながらじっくり距離を縮める":     { sensitive: 2, intelligent: 1, affectionate: 1 },
+  "相手のことを知りたくて質問攻め":               { intelligent: 2, sociable: 1, playful: 1 },
+  "ライバルが現れると燃えてしまう":               { playful: 2, sociable: 1, independent: 1 },
+  // Q3: ストレス
+  "大声で話したり歌ったりして発散":               { sociable: 2, playful: 1 },
+  "信頼できる人にひたすら甘える":                 { affectionate: 2, sensitive: 1 },
+  "新しい趣味や場所で気分転換":                   { playful: 2, independent: 1, intelligent: 1 },
+  "静かにこもって一人で解消":                     { independent: 2, intelligent: 1, sensitive: 1 },
+  // Q4: コミュニケーション
+  "気づいたらずっと喋っている":                   { sociable: 2, playful: 1 },
+  "少数の人と深く繋がりたい":                     { sensitive: 2, affectionate: 1 },
+  "相手の話をよく聞く方":                         { sensitive: 2, intelligent: 1, affectionate: 1 },
+  "状況を読んで慎重に話す":                       { intelligent: 2, sensitive: 1, independent: 1 },
+  // Q5: 食べ物
+  "思わず声が出るほど喜ぶ":                       { playful: 2, sociable: 1 },
+  "大切な人に分けてあげたくなる":                 { affectionate: 2, sensitive: 1 },
+  "初めての味も積極的に試してみる":               { playful: 2, independent: 1, intelligent: 1 },
+  "じっくり味わって大切に食べる":                 { sensitive: 2, intelligent: 1, independent: 1 },
+  // Q6: 一人の時間
+  "寂しくて誰かを呼びたくなる":                   { sociable: 2, affectionate: 1, sensitive: 1 },
+  "大好きな人の顔が浮かんで会いたくなる":         { affectionate: 2, sensitive: 1 },
+  "新しい発見があって楽しめる":                   { intelligent: 2, independent: 1, playful: 1 },
+  "のんびりできて充実している":                   { independent: 2, sensitive: 1 },
+  // Q7: 大切な人が他の人と
+  "気にしない、みんなと仲良くしてほしい":         { sociable: 2, independent: 1 },
+  "すごく気になってモヤモヤしてしまう":           { sensitive: 2, affectionate: 1 },
+  "二人のことが気になって調べてしまう":           { intelligent: 2, sensitive: 1, independent: 1 },
+  "内心は寂しいが表には出さない":                 { sensitive: 2, intelligent: 1, independent: 1 },
+  // Q8: 新しい環境
+  "わくわくして飛び込む":                         { playful: 2, sociable: 1, independent: 1 },
+  "信頼できる人が一緒なら挑戦できる":             { affectionate: 2, sensitive: 1, sociable: 1 },
+  "じっくり情報を集めてから判断する":             { intelligent: 2, sensitive: 1, independent: 1 },
+  "慎重になって時間が必要":                       { sensitive: 2, intelligent: 1 },
+  // Q9: 嬉しいこと
+  "周りの人全員に話したくなる":                   { sociable: 2, playful: 1 },
+  "大切な人だけに伝えたい":                       { affectionate: 2, sensitive: 1 },
+  "どう表現しようか考えてしまう":                 { intelligent: 2, sensitive: 1 },
+  "自分の中でじっくり噛み締める":                 { sensitive: 2, intelligent: 1, independent: 1 },
+  // Q10: 愛情表現
+  "言葉にして積極的に伝える":                     { sociable: 2, affectionate: 1, playful: 1 },
+  "ずっとそばにいることで示す":                   { affectionate: 2, sensitive: 1 },
+  "相手が喜ぶことを考えて行動する":               { affectionate: 1, intelligent: 1, playful: 1, sensitive: 1 },
+  "照れてなかなか言えないけど心では深く思っている": { sensitive: 2, intelligent: 1, independent: 1 },
+};
 
-## 重要なルール
+// 各次元で取りうる最大合計点（正規化に使う）
+const DIM_MAX: DimScores = {
+  sociable: 18, independent: 13, affectionate: 17,
+  playful: 13,  intelligent: 16, sensitive: 18,
+};
+
+const DIMS: DimKey[] = ["sociable", "independent", "affectionate", "playful", "intelligent", "sensitive"];
+
+// 10問の回答を集計して性格スコアを算出
+function scoreAnswers(answers: Answer[]): DimScores {
+  const total: DimScores = { sociable: 0, independent: 0, affectionate: 0, playful: 0, intelligent: 0, sensitive: 0 };
+  for (const a of answers) {
+    const s = ANSWER_SCORES[a.answer];
+    if (s) {
+      for (const k of DIMS) total[k] += s[k] ?? 0;
+    }
+  }
+  return total;
+}
+
+// 集計スコアに最も近いプロファイルを返す
+function selectBestProfile(answers: Answer[]): Record<string, unknown> {
+  const raw = scoreAnswers(answers);
+  // 0〜10 スケールに揃える
+  const norm: DimScores = { sociable: 0, independent: 0, affectionate: 0, playful: 0, intelligent: 0, sensitive: 0 };
+  for (const k of DIMS) norm[k] = (raw[k] / DIM_MAX[k]) * 10;
+
+  let best = PROFILES[0];
+  let minDist = Infinity;
+  for (const profile of PROFILES) {
+    const m = profile.human_personality_match as DimScores;
+    let dist = 0;
+    for (const k of DIMS) dist += Math.pow(norm[k] - m[k], 2);
+    if (dist < minDist) { minDist = dist; best = profile; }
+  }
+  return best;
+}
+
+// ============================================================
+
+function buildPrompt(answers: Answer[], profile: Record<string, unknown>): string {
+  return `あなたはインコ占い師です。以下のインコプロファイルと診断回答をもとに、占い結果の文章を生成してください。
+
+## このユーザーに決まったインコタイプ
+${JSON.stringify(profile, null, 2)}
+
+## 診断の回答
+${answers.map((a, i) => `Q${i + 1}: ${a.question}\n→ ${a.answer}`).join("\n\n")}
+
+## 文章生成ルール
 - 比喩は必ず鳥・インコに関連した表現を使う（「社交鳥」「羽を広げる」「さえずる」「羽ばたく」「群れを作る」など）
 - 「蝶」「猫」「犬」など他の動物の比喩は一切使わない
 - インコらしい愛らしい口調で、楽しくポジティブに描写する
 - descriptionはインコの具体的な行動（鳴く・羽ばたく・甘える・つつくなど）で性格を表現する
 
-## インコデータベース
-${JSON.stringify(PROFILE_SUMMARY, null, 2)}
-
-## 診断の回答
-${answers.map((a, i) => `Q${i + 1}: ${a.question}\n→ ${a.answer}`).join("\n\n")}
-
 ## 出力形式（JSON、他のテキスト不要）
 {
-  "inco_type": "○○インコ型",
+  "inco_type": "${profile.species}型",
   "inco_emoji": "インコに近い絵文字1つ",
-  "color_theme": "選んだspeciesのcolor_themeをそのまま",
   "archetype": "占いキャラクター像（短く・キャッチーに）",
   "description": "200字程度、インコの行動・習性に例えながら楽しく描写",
   "traits": ["特徴1", "特徴2", "特徴3"],
   "love_message": "恋愛・人間関係へのひとこと（50字程度）",
-  "lucky_color": "選んだspeciesのlucky_colorをそのまま",
   "lucky_item": "ラッキーアイテム",
-  "compatibility": "選んだspeciesのcompatibilityをそのまま",
-  "compatibility_reason": "選んだspeciesのcompatibility_reasonをそのまま",
   "share_text": "SNSシェア用の一言（インコらしい口調で100字以内）"
 }`;
 }
 
 async function callDiagnoseApi(answers: Answer[]): Promise<Record<string, unknown>> {
+  const profile = selectBestProfile(answers);
+
   const response = await client.messages.create({
     model: "claude-haiku-4-5-20251001",
-    max_tokens: 1500,
+    max_tokens: 1024,
     temperature: 0,
-    messages: [{ role: "user", content: buildPrompt(answers) }],
+    messages: [{ role: "user", content: buildPrompt(answers, profile) }],
   });
 
   const block = response.content.find((b) => b.type === "text");
   if (!block || block.type !== "text") throw new Error("テキストレスポンスがありません");
 
-  // JSONブロックを正規表現で抽出（余計なテキストへの耐性）
   const raw = block.text.trim();
   const match = raw.match(/\{[\s\S]*\}/);
   if (!match) throw new Error("JSONが見つかりません");
 
-  return JSON.parse(match[0]);
+  const generated = JSON.parse(match[0]);
+
+  // プロファイルの固定値はコードから直接セット（AIに任せない）
+  return {
+    ...generated,
+    color_theme: profile.color_theme,
+    lucky_color: profile.lucky_color,
+    compatibility: profile.compatibility,
+    compatibility_reason: profile.compatibility_reason,
+  };
 }
 
 export async function POST(req: NextRequest) {
